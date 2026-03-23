@@ -54,8 +54,8 @@ class DilatedAttentionNetwork(nn.Module):
         super(DilatedAttentionNetwork, self).__init__()
         
         # A. Load Standard DeepLabV3 with ResNet50 backbone
-        # This provides the "Dilated Convolution" part of your title
-        self.base_model = deeplabv3_resnet50(weights='DEFAULT')
+        # We don't need pretrained weights during inference, saving 160MB+ RAM!
+        self.base_model = deeplabv3_resnet50(weights=None)
         
         # B. Modify the Classifier Head (The output layer)
         # DeepLab's classifier is: (256 channels -> num_classes)
