@@ -74,3 +74,47 @@ If you have nothing installed on your laptop, follow these steps first:
 ## Troubleshooting
 - **Model not found**: Ensure `output/best_model.pth` exists. If not, you may need to train the model first using `train.py`.
 - **Database errors**: Delete `lulc.db` to reset the database if you encounter schema issues.
+
+## Production Deployment (Recommended)
+
+This app is now compatible with both SQLite (local) and PostgreSQL (cloud). For production, use:
+
+- **App Hosting**: Render (or Koyeb/Fly.io)
+- **Database**: Neon PostgreSQL (or Supabase PostgreSQL)
+- **Model Weights**: Hugging Face model repository
+
+### 1) Set Environment Variables
+
+Use values from `.env.example`:
+
+- `SECRET_KEY`: strong random string
+- `DATABASE_URL`: cloud Postgres connection string
+- `HF_MODEL_REPO_ID`: Hugging Face repo id, e.g. `yourname/lulc-model`
+- `HF_MODEL_FILENAME`: model filename in HF repo, e.g. `best_model.pth`
+- `FLASK_DEBUG=false`
+
+Optional:
+- `MODEL_PATH`: local fallback path, default `output/best_model.pth`
+
+### 2) Deploy to Render
+
+1. Push this repo to GitHub.
+2. In Render, create a **Web Service** from the repo.
+3. Render will detect `requirements.txt` and `Procfile`.
+4. Add the environment variables above.
+5. Deploy.
+
+Start command used:
+```bash
+gunicorn web_app:app
+```
+
+### 3) Database Notes
+
+- Local dev still uses SQLite if `DATABASE_URL` is not set.
+- Production should use PostgreSQL to avoid local file limitations and data loss.
+
+### 4) Prediction Image Storage
+
+Current app stores generated images on local filesystem (`output/custom_predictions`).
+For fully durable cloud storage, upload images to object storage (Cloudinary/S3/Supabase Storage) and save URLs in DB.

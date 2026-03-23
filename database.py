@@ -1,160 +1,143 @@
-import sqlite3
+import json
+import os
 from datetime import datetime
+from sqlalchemy import create_engine, Column, DateTime, ForeignKey, Integer, String, Text
+from sqlalchemy.orm import declarative_base, relationship, sessionmaker
 from werkzeug.security import generate_password_hash, check_password_hash
 
-DB_NAME = "lulc.db"
+DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///lulc.db")
+Base = declarative_base()
+engine = create_engine(DATABASE_URL, future=True)
+SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False, future=True)
 
-def get_db_connection():
-    conn = sqlite3.connect(DB_NAME)
-    conn.row_factory = sqlite3.Row
-    return conn
+
+class User(Base):
+    __tablename__ = "users"
+
+    id = Column(Integer, primary_key=True, index=True)
+    username = Column(String(255), unique=True, nullable=False, index=True)
+    password_hash = Column(String(512), nullable=True)
+    full_name = Column(String(255), nullable=True)
+    email = Column(String(255), nullable=True)
+    joined_date = Column(String(50), nullable=True)
+    history = relationship("History", back_populates="user", cascade="all, delete-orphan")
+
+
+class History(Base):
+    __tablename__ = "history"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    input_image = Column(Text, nullable=False)
+    output_image = Column(Text, nullable=False)
+    stats = Column(Text, nullable=True)
+    timestamp = Column(DateTime, default=datetime.utcnow, nullable=False)
+    user = relationship("User", back_populates="history")
+
+
+def _user_to_dict(user):
+    if not user:
+        return None
+    return {
+        "id": user.id,
+        "username": user.username,
+        "password_hash": user.password_hash,
+        "full_name": user.full_name,
+        "email": user.email,
+        "joined_date": user.joined_date,
+    }
+
+
+def _history_to_dict(item):
+    parsed_stats = None
+    if item.stats:
+        try:
+            parsed_stats = json.loads(item.stats)
+        except json.JSONDecodeError:
+            parsed_stats = None
+    return {
+        "id": item.id,
+        "user_id": item.user_id,
+        "input_image": item.input_image,
+        "output_image": item.output_image,
+        "stats": parsed_stats,
+        "timestamp": item.timestamp.strftime("%Y-%m-%d %H:%M:%S"),
+    }
+
 
 def init_db():
-    """Initialize the database with users and history tables."""
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    
-    # Create Users table (Simple mock user for now)
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS users (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            username TEXT NOT NULL UNIQUE,
-            password_hash TEXT,
-            full_name TEXT,
-            email TEXT,
-            joined_date TEXT
-        )
-    ''')
+    """Initialize DB schema and ensure demo user exists."""
+    Base.metadata.create_all(bind=engine)
+    with SessionLocal() as session:
+        existing = session.query(User).filter_by(username="demo_user").first()
+        if existing is None:
+            demo = User(
+                username="demo_user",
+                password_hash=generate_password_hash("password123"),
+                full_name="LULC Researcher",
+                email="researcher@example.com",
+                joined_date=datetime.now().strftime("%Y-%m-%d"),
+            )
+            session.add(demo)
+            session.commit()
 
-    # Check if password_hash column exists (migration for existing db)
-    cursor.execute("PRAGMA table_info(users)")
-    columns = [info[1] for info in cursor.fetchall()]
-    if 'password_hash' not in columns:
-        cursor.execute("ALTER TABLE users ADD COLUMN password_hash TEXT")
-    
-    # Create History table
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS history (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            user_id INTEGER,
-            input_image TEXT NOT NULL,
-            output_image TEXT NOT NULL,
-            stats TEXT,
-            timestamp TEXT DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY (user_id) REFERENCES users (id)
-        )
-    ''')
-    
-    # Migration for history table to add stats column
-    cursor.execute("PRAGMA table_info(history)")
-    hist_columns = [info[1] for info in cursor.fetchall()]
-    if 'stats' not in hist_columns:
-        cursor.execute("ALTER TABLE history ADD COLUMN stats TEXT")
-    
-    # Check if default user exists, if not create one
-    cursor.execute('SELECT * FROM users WHERE username = ?', ('demo_user',))
-    if cursor.fetchone() is None:
-        default_pass = generate_password_hash('password123')
-        cursor.execute('''
-            INSERT INTO users (username, password_hash, full_name, email, joined_date)
-            VALUES (?, ?, ?, ?, ?)
-        ''', ('demo_user', default_pass, 'LULC Researcher', 'researcher@example.com', datetime.now().strftime("%Y-%m-%d")))
-    
-    conn.commit()
-    conn.close()
 
 def add_prediction(user_id, input_image, output_image, stats=None):
-    import json
-    conn = get_db_connection()
-    cursor = conn.cursor()
     stats_json = json.dumps(stats) if stats else None
-    cursor.execute('''
-        INSERT INTO history (user_id, input_image, output_image, stats)
-        VALUES (?, ?, ?, ?)
-    ''', (user_id, input_image, output_image, stats_json))
-    conn.commit()
-    conn.close()
+    with SessionLocal() as session:
+        item = History(
+            user_id=user_id,
+            input_image=input_image,
+            output_image=output_image,
+            stats=stats_json,
+        )
+        session.add(item)
+        session.commit()
+
 
 def get_user_history(user_id):
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    cursor.execute('''
-        SELECT * FROM history WHERE user_id = ? ORDER BY timestamp DESC
-    ''', (user_id,))
-    rows = cursor.fetchall()
-    conn.close()
-    
-    import json
-    history_list = []
-    for row in rows:
-        item = dict(row)
-        if item.get('stats'):
-            try:
-                item['stats'] = json.loads(item['stats'])
-            except:
-                item['stats'] = None
-        history_list.append(item)
-    return history_list
+    with SessionLocal() as session:
+        rows = (
+            session.query(History)
+            .filter_by(user_id=user_id)
+            .order_by(History.timestamp.desc())
+            .all()
+        )
+        return [_history_to_dict(row) for row in rows]
+
 
 def get_history_item(user_id, history_id):
-    """
-    Fetch one history row for a user (used for the analysis detail page).
-    """
-    import json
+    with SessionLocal() as session:
+        row = session.query(History).filter_by(user_id=user_id, id=history_id).first()
+        return _history_to_dict(row) if row else None
 
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    cursor.execute('''
-        SELECT * FROM history
-        WHERE user_id = ? AND id = ?
-    ''', (user_id, history_id))
-    row = cursor.fetchone()
-    conn.close()
-
-    if not row:
-        return None
-
-    item = dict(row)
-    if item.get('stats'):
-        try:
-            item['stats'] = json.loads(item['stats'])
-        except:
-            item['stats'] = None
-
-    return item
 
 def get_user(user_id):
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    cursor.execute('SELECT * FROM users WHERE id = ?', (user_id,))
-    row = cursor.fetchone()
-    conn.close()
-    return dict(row) if row else None
+    with SessionLocal() as session:
+        row = session.query(User).filter_by(id=user_id).first()
+        return _user_to_dict(row)
+
 
 def create_user(username, email, password, full_name=""):
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    try:
-        password_hash = generate_password_hash(password)
-        cursor.execute('''
-            INSERT INTO users (username, email, password_hash, full_name, joined_date)
-            VALUES (?, ?, ?, ?, ?)
-        ''', (username, email, password_hash, full_name, datetime.now().strftime("%Y-%m-%d")))
-        conn.commit()
+    with SessionLocal() as session:
+        existing = session.query(User).filter_by(username=username).first()
+        if existing:
+            return False
+        user = User(
+            username=username,
+            email=email,
+            password_hash=generate_password_hash(password),
+            full_name=full_name,
+            joined_date=datetime.now().strftime("%Y-%m-%d"),
+        )
+        session.add(user)
+        session.commit()
         return True
-    except sqlite3.IntegrityError:
-        return False
-    finally:
-        conn.close()
+
 
 def verify_user(username, password):
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    cursor.execute('SELECT * FROM users WHERE username = ?', (username,))
-    user = cursor.fetchone()
-    conn.close()
-    
-    if user and user['password_hash']:
-        if check_password_hash(user['password_hash'], password):
-            return dict(user)
+    with SessionLocal() as session:
+        user = session.query(User).filter_by(username=username).first()
+    if user and user.password_hash and check_password_hash(user.password_hash, password):
+        return _user_to_dict(user)
     return None

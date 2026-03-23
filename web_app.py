@@ -15,15 +15,19 @@ import torch
 from src.model import DilatedAttentionNetwork
 import predict_custom
 import database
+try:
+    from huggingface_hub import hf_hub_download
+except ModuleNotFoundError:
+    hf_hub_download = None
 
 # Configuration
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
-MODEL_PATH = "output/best_model.pth"
+MODEL_PATH = os.getenv("MODEL_PATH", "output/best_model.pth")
 OUTPUT_FOLDER = "output/custom_predictions"
 ALLOWED_EXT = {"png", "jpg", "jpeg"}
 
 app = Flask(__name__)
-app.secret_key = 'supersecretkey'  # Change this in production
+app.secret_key = os.getenv("SECRET_KEY", "supersecretkey")
 
 login_manager = LoginManager()
 login_manager.init_app(app)
@@ -48,11 +52,27 @@ def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXT
 
 
+def get_model_path():
+    """Resolve local model path, downloading from Hugging Face if configured."""
+    if os.path.exists(MODEL_PATH):
+        return MODEL_PATH
+
+    repo_id = os.getenv("HF_MODEL_REPO_ID")
+    filename = os.getenv("HF_MODEL_FILENAME", "best_model.pth")
+    if repo_id and hf_hub_download is not None:
+        print(f"Downloading model from Hugging Face repo: {repo_id}")
+        return hf_hub_download(repo_id=repo_id, filename=filename)
+
+    raise FileNotFoundError(
+        f"Model file not found: {MODEL_PATH}. "
+        "Set HF_MODEL_REPO_ID and HF_MODEL_FILENAME for automatic download."
+    )
+
+
 def load_model():
     model = DilatedAttentionNetwork(num_classes=7).to(DEVICE)
-    if not os.path.exists(MODEL_PATH):
-        raise FileNotFoundError(f"Model file not found: {MODEL_PATH}")
-    state = torch.load(MODEL_PATH, map_location=DEVICE)
+    model_path = get_model_path()
+    state = torch.load(model_path, map_location=DEVICE)
     if isinstance(state, dict) and 'model_state_dict' in state:
         state = state['model_state_dict']
     model.load_state_dict(state)
@@ -69,6 +89,17 @@ try:
 except Exception as e:
     MODEL = None
     print(f"Warning: could not load model at startup: {e}")
+
+# Initialize DB on import so Gunicorn deployments also create schema.
+database.init_db()
+
+
+def _to_image_url(image_value):
+    if not image_value:
+        return image_value
+    if image_value.startswith("http://") or image_value.startswith("https://"):
+        return image_value
+    return f"/predictions/{image_value}"
 
 
 @app.route('/')
@@ -114,6 +145,9 @@ def logout():
 def dashboard():
     user = database.get_user(current_user.id)
     history = database.get_user_history(current_user.id)
+    for item in history:
+        item["input_image_url"] = _to_image_url(item.get("input_image"))
+        item["output_image_url"] = _to_image_url(item.get("output_image"))
     return render_template('dashboard.html', user=user, history=history)
 
 @app.route('/analysis/<analysis_id>', endpoint='analysis')
@@ -123,6 +157,8 @@ def analysis(analysis_id):
     if not item:
         # User requested an analysis that doesn't exist or doesn't belong to them.
         return "Analysis not found", 404
+    item["input_image_url"] = _to_image_url(item.get("input_image"))
+    item["output_image_url"] = _to_image_url(item.get("output_image"))
 
     return render_template('analysis.html', item=item)
 
@@ -138,6 +174,8 @@ def app_page():
 def predict():
     # Accept optional uploaded file. If provided, run prediction on it; otherwise use configured image.
     try:
+        if MODEL is None:
+            return jsonify({'error': 'Model is not loaded. Check model path or HF model config.'}), 500
         if 'file' in request.files and request.files['file'].filename != '':
             file = request.files['file']
             if not allowed_file(file.filename):
@@ -175,8 +213,4 @@ if __name__ == '__main__':
     if not os.path.exists(OUTPUT_FOLDER):
         os.makedirs(OUTPUT_FOLDER)
     
-    # Initialize Database
-    database.init_db()
-    print("Database initialized.")
-
-    app.run(host='0.0.0.0', port=5000, debug=True)
+    app.run(host='0.0.0.0', port=5000, debug=os.getenv("FLASK_DEBUG", "false").lower() == "true")

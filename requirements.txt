@@ -7,3 +7,7 @@ matplotlib
 scikit-learn
 flask
 Flask-Login
+gunicorn
+SQLAlchemy
+psycopg2-binary
+huggingface_hub

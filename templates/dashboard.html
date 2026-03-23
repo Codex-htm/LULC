@@ -53,14 +53,14 @@
                     aria-label="Open analysis {{ item.id }}">
                     <div class="grid grid-cols-2 bg-slate-200">
                         <div class="aspect-w-1 aspect-h-1 w-full overflow-hidden relative border-r border-white/20">
-                            <img src="/predictions/{{ item.input_image }}" alt="Input"
+                            <img src="{{ item.input_image_url }}" alt="Input"
                                 class="w-full h-full object-center object-cover group-hover:scale-110 transition-transform duration-700">
                             <div
                                 class="absolute top-2 left-2 bg-black/50 text-white text-[10px] px-1.5 py-0.5 rounded backdrop-blur-sm">
                                 Input</div>
                         </div>
                         <div class="aspect-w-1 aspect-h-1 w-full overflow-hidden relative">
-                            <img src="/predictions/{{ item.output_image }}" alt="Prediction"
+                            <img src="{{ item.output_image_url }}" alt="Prediction"
                                 class="w-full h-full object-center object-cover group-hover:scale-110 transition-transform duration-700">
                             <div
                                 class="absolute top-2 left-2 bg-indigo-600/80 text-white text-[10px] px-1.5 py-0.5 rounded backdrop-blur-sm">
