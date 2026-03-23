@@ -1,4 +1,5 @@
 import torch
+torch.set_num_threads(1)
 import cv2
 import numpy as np
 import matplotlib.pyplot as plt

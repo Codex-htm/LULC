@@ -12,6 +12,9 @@ except ModuleNotFoundError:
     sys.exit(1)
 from werkzeug.utils import secure_filename
 import torch
+# Very important for Render free tier: limit PyTorch threads to reduce RAM usage
+torch.set_num_threads(1)
+
 from src.model import DilatedAttentionNetwork
 import predict_custom
 import database
