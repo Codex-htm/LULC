@@ -1,0 +1,175 @@
+:root {
+    --bg-color: #f4f7f6;
+    --text-color: #333;
+    --card-bg: #ffffff;
+    --sidebar-bg: #2c3e50;
+    --sidebar-text: #ecf0f1;
+    --primary-color: #3498db;
+    --secondary-color: #2ecc71;
+    --input-bg: #ffffff;
+    --input-border: #ddd;
+}
+
+[data-theme="dark"] {
+    --bg-color: #0f172a;
+    /* Slate 900 */
+    --text-color: #f1f5f9;
+    /* Slate 100 */
+    --card-bg: #1e293b;
+    /* Slate 800 */
+    --sidebar-bg: #000000;
+    --sidebar-text: #ecf0f1;
+    --primary-color: #818cf8;
+    /* Indigo 400 */
+    --secondary-color: #27ae60;
+    --input-bg: #334155;
+    /* Slate 700 */
+    --input-border: #475569;
+    /* Slate 600 */
+    --glass-bg: rgba(15, 23, 42, 0.8);
+    --glass-border: rgba(255, 255, 255, 0.1);
+}
+
+[data-theme="light"] {
+    --glass-bg: rgba(255, 255, 255, 0.8);
+    --glass-border: rgba(255, 255, 255, 0.3);
+}
+
+body {
+    background-color: var(--bg-color);
+    color: var(--text-color);
+    transition: background-color 0.3s, color 0.3s;
+}
+
+/* Override Tailwind/Base styles for Dark Mode */
+[data-theme="dark"] .glass {
+    background: var(--glass-bg) !important;
+    border-bottom: 1px solid var(--glass-border) !important;
+}
+
+[data-theme="dark"] .glass-card {
+    background: rgba(30, 41, 59, 0.7) !important;
+    /* Darker glass for cards */
+    border: 1px solid var(--glass-border) !important;
+}
+
+[data-theme="dark"] .text-slate-600 {
+    color: #cbd5e1 !important;
+    /* Slate 300 */
+}
+
+[data-theme="dark"] .text-slate-800,
+[data-theme="dark"] .text-slate-900 {
+    color: #f1f5f9 !important;
+    /* Slate 100 */
+}
+
+[data-theme="dark"] .text-slate-500,
+[data-theme="dark"] .text-slate-700 {
+    color: #94a3b8 !important;
+    /* Slate 400 */
+}
+
+[data-theme="dark"] .text-indigo-600 {
+    color: #818cf8 !important;
+    /* Indigo 400 */
+}
+
+[data-theme="dark"] .bg-white {
+    background-color: #1e293b !important;
+    /* Slate 800 */
+}
+
+[data-theme="dark"] .bg-slate-50,
+[data-theme="dark"] .bg-slate-100 {
+    background-color: #0f172a !important;
+    /* Slate 900 */
+}
+
+[data-theme="dark"] .border-slate-200,
+[data-theme="dark"] .border-slate-300 {
+    border-color: #334155 !important;
+    /* Slate 700 */
+}
+
+[data-theme="dark"] .bg-indigo-50 {
+    background-color: rgba(99, 102, 241, 0.1) !important;
+}
+
+[data-theme="dark"] .text-indigo-700,
+[data-theme="dark"] .text-indigo-800 {
+    color: #c7d2fe !important;
+    /* Indigo 200 */
+}
+
+.card,
+.content-section {
+    background-color: var(--card-bg);
+    color: var(--text-color);
+    border: 1px solid var(--input-border);
+}
+
+input,
+select,
+textarea {
+    background-color: var(--input-bg);
+    color: var(--text-color);
+    border: 1px solid var(--input-border);
+}
+
+/* Auth Forms */
+.auth-container {
+    max-width: 400px;
+    margin: 50px auto;
+    padding: 20px;
+    background-color: var(--card-bg);
+    border-radius: 8px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.auth-container h2 {
+    text-align: center;
+    margin-bottom: 20px;
+}
+
+.form-group {
+    margin-bottom: 15px;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 5px;
+}
+
+.form-group input {
+    width: 100%;
+    padding: 10px;
+    border-radius: 4px;
+    box-sizing: border-box;
+}
+
+.btn-block {
+    width: 100%;
+    padding: 10px;
+    background-color: var(--primary-color);
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.btn-block:hover {
+    opacity: 0.9;
+}
+
+.auth-links {
+    text-align: center;
+    margin-top: 15px;
+    font-size: 0.9em;
+}
+
+.auth-links a {
+    color: var(--primary-color);
+    text-decoration: none;
+}
+

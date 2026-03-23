@@ -1,0 +1,7 @@
+lulc.db
+__pycache__/
+output/custom_predictions/
+tmp_uploads/
+venv/
+output/best_model.pth
+output
