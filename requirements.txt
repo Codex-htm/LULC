@@ -11,3 +11,4 @@ gunicorn
 SQLAlchemy
 psycopg2-binary
 huggingface_hub
+cloudinary

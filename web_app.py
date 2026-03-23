@@ -20,6 +20,12 @@ try:
 except ModuleNotFoundError:
     hf_hub_download = None
 
+try:
+    import cloudinary
+    import cloudinary.uploader
+except ModuleNotFoundError:
+    cloudinary = None
+
 # Configuration
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 MODEL_PATH = os.getenv("MODEL_PATH", "output/best_model.pth")
@@ -191,12 +197,37 @@ def predict():
         else:
             input_fname, out_fname, stats = predict_custom.predict_image(model=MODEL)
 
+        # Optional: Upload to Cloudinary if configured
+        if cloudinary and os.getenv("CLOUDINARY_URL"):
+            try:
+                input_path_full = os.path.join(OUTPUT_FOLDER, input_fname)
+                out_path_full = os.path.join(OUTPUT_FOLDER, out_fname)
+                
+                input_upload = cloudinary.uploader.upload(input_path_full)
+                out_upload = cloudinary.uploader.upload(out_path_full)
+                
+                # Replace local filenames with Cloudinary secure URLs
+                input_fname = input_upload.get('secure_url', input_fname)
+                out_fname = out_upload.get('secure_url', out_fname)
+                
+                # Clean up local files to save space on ephemeral disk
+                if os.path.exists(input_path_full):
+                    os.remove(input_path_full)
+                if os.path.exists(out_path_full):
+                    os.remove(out_path_full)
+            except Exception as e:
+                print(f"Cloudinary upload failed: {e}")
+
         # Save to database
         database.add_prediction(current_user.id, input_fname, out_fname, stats)
 
+        # Return URLs directly if they are HTTP, otherwise format as local paths
+        input_url = input_fname if input_fname.startswith('http') else f'/predictions/{input_fname}'
+        result_url = out_fname if out_fname.startswith('http') else f'/predictions/{out_fname}'
+        
         return jsonify({
-            'input_url': f'/predictions/{input_fname}', 
-            'result_url': f'/predictions/{out_fname}',
+            'input_url': input_url, 
+            'result_url': result_url,
             'stats': stats
         }), 200
     except Exception as e:

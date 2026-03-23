@@ -92,6 +92,7 @@ Use values from `.env.example`:
 - `HF_MODEL_REPO_ID`: Hugging Face repo id, e.g. `yourname/lulc-model`
 - `HF_MODEL_FILENAME`: model filename in HF repo, e.g. `best_model.pth`
 - `FLASK_DEBUG=false`
+- `CLOUDINARY_URL`: Cloudinary API URL, e.g. `cloudinary://API_KEY:API_SECRET@CLOUD_NAME`
 
 Optional:
 - `MODEL_PATH`: local fallback path, default `output/best_model.pth`
@@ -108,6 +109,7 @@ Start command used:
 ```bash
 gunicorn web_app:app
 ```
+**CRITICAL**: Render may default to `gunicorn app:app`. To fix this ModuleNotFoundError, explicitly set the **Start Command** in Render to `gunicorn web_app:app`.
 
 ### 3) Database Notes
 
@@ -117,4 +119,5 @@ gunicorn web_app:app
 ### 4) Prediction Image Storage
 
 Current app stores generated images on local filesystem (`output/custom_predictions`).
-For fully durable cloud storage, upload images to object storage (Cloudinary/S3/Supabase Storage) and save URLs in DB.
+For fully durable cloud storage (perfect for Render), we have integrated Cloudinary!
+Add `CLOUDINARY_URL` to your Render environment variables, and the app will automatically upload images and store their long-lived URLs in your database.
